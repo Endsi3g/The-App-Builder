@@ -13,12 +13,14 @@
 ## 🚀 Installation rapide
 
 1. **Cloner le projet** :
+
    ```bash
    git clone <repo-url>
    cd The-App-Builder
    ```
 
 2. **Installer les dépendances** :
+
    ```bash
    npm install
    ```
@@ -42,6 +44,7 @@
 ## 🤖 Fallback IA (Ollama)
 
 Si vous n'avez pas de clé API Gemini ou si vous souhaitez travailler en local :
+
 1. Installez [Ollama](https://ollama.com/).
 2. Lancez le modèle llama3 : `ollama run llama3`.
 3. Supprimez (ou ne mettez pas) la clé `GEMINI_API_KEY` dans votre `.env`. L'application basculera automatiquement sur Ollama.
@@ -63,17 +66,17 @@ npm run build:test
 
 ## ☁️ Déploiement Vercel
 
-Le fichier `vercel.json` est inclus. 
+Le fichier `vercel.json` est inclus.
 **Note importante** : SQLite est éphémère sur Vercel. Pour une persistence réelle en ligne, migrez `server/db.js` vers une base PostgreSQL (Supabase/Neon).
 
 ## 🌊 Vibe Coding Flow (Agency Best Practices)
 
 Pour transformer rapidement un blueprint en application fonctionnelle :
 
-1.  **Clone** : Utilisez l'App Replicator pour générer le blueprint.
-2.  **Explore** : Lisez la section `Vibe Prompts` du blueprint généré.
-3.  **Implement** : Copiez les prompts un par un dans votre assistant de code (Cursor/Windsurf).
-4.  **Track** : Mettez à jour le statut dans Uprising OS pour suivre l'avancement avec Xavier & Kael.
+1. **Clone** : Utilisez l'App Replicator pour générer le blueprint.
+2. **Explore** : Lisez la section `Vibe Prompts` du blueprint généré.
+3. **Implement** : Copiez les prompts un par un dans votre assistant de code (Cursor/Windsurf).
+4. **Track** : Mettez à jour le statut dans Uprising OS pour suivre l'avancement avec Xavier & Kael.
 
 ## 🛠 Stack Technique
 

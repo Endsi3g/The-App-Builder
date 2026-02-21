@@ -1,7 +1,7 @@
 # test-prod.ps1 - Uprising OS Production Test Script
 # Ce script vérifie l'environnement, lance Ollama si besoin, et démarre l'application en mode production.
 
-Write-Host "--- Uprising OS: Production Readiness Check ---" -ForegroundColor Indigo
+Write-Host "--- Uprising OS: Production Readiness Check ---" -ForegroundColor Cyan
 
 # 1. Vérification de Node.js
 if (!(Get-Command node -ErrorAction SilentlyContinue)) {
@@ -27,15 +27,16 @@ if (!(Test-Path "node_modules")) {
 if (Get-Command ollama -ErrorAction SilentlyContinue) {
     Write-Host "Vérification d'Ollama..."
     try {
-        $response = Invoke-RestMethod -Uri "http://localhost:11434/api/tags" -ErrorAction Stop
-        Write-Host "[OK] Ollama est déjà en cours d'exécution."
-    } catch {
+        Invoke-RestMethod -Uri "http://localhost:11434/api/tags" -ErrorAction Stop | Out-Null
+    }
+    catch {
         Write-Host "Ollama n'est pas lancé. Tentative de démarrage..." -ForegroundColor Yellow
         Start-Process "ollama" -ArgumentList "serve" -WindowStyle Hidden
         Start-Sleep -Seconds 5
         Write-Host "[OK] Ollama a été démarré en arrière-plan."
     }
-} else {
+}
+else {
     Write-Warning "Ollama n'est pas installé. Le fallback local ne fonctionnera pas (Gemini requis)."
 }
 

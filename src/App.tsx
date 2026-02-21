@@ -5,8 +5,8 @@ import {
   X, 
   ChevronRight, 
   BookOpen, 
-  CheckCircle2, 
-  AlertTriangle, 
+  CircleCheckBig, 
+  TriangleAlert, 
   Lightbulb,
   ArrowRight,
   Terminal,
@@ -16,8 +16,8 @@ import {
   Wand2,
   UserPlus,
   CircleDashed,
-  Loader2,
-  CheckCircle,
+  LoaderCircle,
+  CircleCheck,
   Trash2,
   Info,
   ExternalLink
@@ -51,8 +51,8 @@ type ToolState = {
 
 const STATUS_CONFIG = {
   backlog: { label: 'À Faire', icon: CircleDashed, color: 'text-slate-400', bg: 'bg-slate-100' },
-  building: { label: 'En Cours', icon: Loader2, color: 'text-indigo-500', bg: 'bg-indigo-50' },
-  live: { label: 'En Prod', icon: CheckCircle, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+  building: { label: 'En Cours', icon: LoaderCircle, color: 'text-indigo-500', bg: 'bg-indigo-50' },
+  live: { label: 'En Prod', icon: CircleCheck, color: 'text-emerald-500', bg: 'bg-emerald-50' },
 };
 
 const TEAM_MEMBERS = ['Non assigné', 'Kael', 'Xavier Tardif'];
@@ -462,7 +462,7 @@ ${doc.content.vibePrompts?.prompts.map(p => `- ${p}`).join('\n')}
                 </div>
                 <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
                   <h3 className="font-semibold text-slate-900 mb-3 flex items-center gap-2 text-sm uppercase tracking-wide">
-                    <AlertTriangle className="w-4 h-4 text-orange-500" />
+                    <TriangleAlert className="w-4 h-4 text-orange-500" />
                     Pourquoi Custom ?
                   </h3>
                   <p className="text-slate-600 text-sm leading-relaxed">
@@ -626,7 +626,7 @@ ${doc.content.vibePrompts?.prompts.map(p => `- ${p}`).join('\n')}
               {/* 5. Validation Checklist */}
               <section className="bg-emerald-50 rounded-xl p-6 border border-emerald-100">
                 <h3 className="font-bold text-emerald-900 mb-4 flex items-center gap-2">
-                  <CheckCircle2 className="w-5 h-5" />
+                  <CircleCheckBig className="w-5 h-5" />
                   Validation Pré-Lancement
                 </h3>
                 <ul className="space-y-3">
@@ -728,7 +728,7 @@ ${doc.content.vibePrompts?.prompts.map(p => `- ${p}`).join('\n')}
                   : 'bg-white/90 border-white text-slate-800'
               }`}
             >
-              {n.type === 'error' ? <AlertTriangle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4 text-emerald-500" />}
+              {n.type === 'error' ? <TriangleAlert className="w-4 h-4" /> : <CircleCheck className="w-4 h-4 text-emerald-500" />}
               <span className="text-sm font-medium">{n.message}</span>
             </motion.div>
           ))}
