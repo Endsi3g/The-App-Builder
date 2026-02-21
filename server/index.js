@@ -6,6 +6,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 import fetch from 'node-fetch';
+import { capturePage } from './browser.js';
 
 dotenv.config();
 dotenv.config({ path: '.env.local' });
@@ -44,8 +45,8 @@ app.get('/api/blueprints', (req, res) => {
     }));
     res.json(blueprints);
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Failed to fetch blueprints' });
+    console.error("GET /api/blueprints Error:", error);
+    res.status(500).json({ error: error.message || 'Failed to fetch blueprints' });
   }
 });
 
@@ -73,8 +74,8 @@ app.post('/api/blueprints/bulk', (req, res) => {
     insertMany(blueprints);
     res.json({ success: true });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Failed to bulk save blueprints' });
+    console.error("POST /api/blueprints/bulk Error:", error);
+    res.status(500).json({ error: error.message || 'Failed to bulk save blueprints' });
   }
 });
 
@@ -125,6 +126,19 @@ app.post('/api/tool-states', (req, res) => {
   }
 });
 
+app.put('/api/blueprints/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    const { content } = req.body;
+    const stmt = db.prepare('UPDATE blueprints SET content = ? WHERE id = ?');
+    stmt.run(JSON.stringify(content), id);
+    res.json({ success: true });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to update blueprint' });
+  }
+});
+
 // Generate Blueprint with Gemini or Ollama Fallback
 app.post('/api/replicate', async (req, res) => {
   const { url } = req.body;
@@ -142,8 +156,23 @@ app.post('/api/replicate', async (req, res) => {
     const appName = hostname.split('.')[0] === 'www' ? hostname.split('.')[1] : hostname.split('.')[0];
     const capitalizedAppName = appName.charAt(0).toUpperCase() + appName.slice(1);
 
+    // Capture render content via Browserless
+    console.log(`Starting visual capture for ${url}...`);
+    let pageData = { title: capitalizedAppName, content: '' };
+    try {
+      pageData = await capturePage(url);
+      console.log(`Capture successful: "${pageData.title}"`);
+    } catch (browserErr) {
+      console.warn("Browser capture failed, falling back to basic analysis:", browserErr.message);
+    }
+
     const prompt = `Tu es un expert en conception de produits logiciels (Vibe Coding) pour une agence. 
-Ton objectif est de générer un Blueprint (JSON complet et strictement formaté) pour recréer une application interne à l'agence qui clone et simplifie l'application trouvable à ce lien/nom : ${url} (Application ciblée : ${capitalizedAppName}).
+Ton objectif est de générer un Blueprint (JSON complet et strictement formaté) pour recréer une application interne à l'agence qui clone et simplifie l'application trouvable à ce lien/nom : ${url} (Application ciblée : ${pageData.title}).
+
+Voici le contenu capturé de la page (DOM Text) pour t'aider dans l'analyse des fonctionnalités :
+---
+${pageData.content.substring(0, 5000)}
+---
 
 Ce blueprint doit s'intégrer directement dans notre application React. Rédige tout en français.
 Le format final de la réponse doit être UNIQUEMENT un objet JSON valide, sans balises markdowns ni texte avant ou après.
@@ -262,6 +291,47 @@ Voici la structure JSON attendue :
   } catch (error) {
     console.error("AI Error:", error.message);
     res.status(500).json({ error: error.message || 'Erreur lors de la génération.' });
+  }
+});
+
+// Search for Open Source Alternatives
+app.post('/api/search-alternatives', async (req, res) => {
+  const { appName, url } = req.body;
+  const target = appName || url;
+  if (!target) return res.status(400).json({ error: 'App name or URL is required' });
+
+  console.log(`Searching for OS alternatives for: ${target}...`);
+
+  const prompt = `Tu es un expert en logiciel open source. Trouve 3 à 5 projets open source (GitHub, GitLab, etc.) qui sont des alternatives sérieuses ou des clones de l'application suivante : ${target}.
+  
+  Pour chaque projet, fournis :
+  - Le nom du projet.
+  - L'URL du dépôt (GitHub/GitLab).
+  - Une brève description (1 phrase) en français expliquant pourquoi c'est une bonne alternative.
+  - Le nombre approximatif d'étoiles GitHub (si connu).
+
+  Réponds UNIQUEMENT avec un objet JSON au format suivant, sans texte avant ou après :
+  {
+    "alternatives": [
+      { "name": "Nom", "url": "https://...", "description": "...", "stars": "1.2k" }
+    ]
+  }
+  `;
+
+  try {
+    const result = await ai.getGenerativeModel({ model: 'gemini-1.5-flash' }).generateContent(prompt);
+    const text = result.response.text();
+    let parsed;
+    try {
+      parsed = JSON.parse(text);
+    } catch (e) {
+      const clean = text.replace(/```json/g, '').replace(/```/g, '').trim();
+      parsed = JSON.parse(clean);
+    }
+    res.json(parsed);
+  } catch (error) {
+    console.error("Search Error:", error.message);
+    res.status(500).json({ error: 'Échec de la recherche d\'alternatives.' });
   }
 });
 

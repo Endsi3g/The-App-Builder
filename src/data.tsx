@@ -84,6 +84,12 @@ export type DocContent = {
     title: string;
     prompts: string[];
   };
+  alternatives?: {
+    name: string;
+    url: string;
+    description: string;
+    stars?: string;
+  }[];
 };
 
 export const DOC_DATA: DocSection[] = [

@@ -1,96 +1,53 @@
-# Uprising OS - Agency App Builder
+# Uprising OS - Agency Architecture Intelligence
 
-**Uprising OS** est un outil interne conçu pour l'agence afin de transformer rapidement des idées d'applications ou des SaaS existants en Blueprints techniques actionnables. L'objectif est de permettre un "Vibe Coding" rapide tout en conservant une structure technique solide basée sur React, Node.js et SQLite.
+**Uprising OS** est l'infrastructure centrale de l'agence pour le reverse-engineering et la planification accélérée d'applications. Conçu pour le **Vibe Coding**, cet outil transforme des concepts ou des produits existants en architectures techniques prêtes à l'emploi.
 
-## ✨ Fonctionnalités
+> [!NOTE]
+> **Prompt Initial du Projet :**
+> "Crée une application React pour l'agence Uprising nommée 'Uprising OS'. Cette application doit servir de hub central pour le 'Vibe Coding'. Elle doit permettre de saisir l'URL d'une application existante, en effectuer une capture visuelle automatisée (via Browserless), générer un blueprint technique complet (via Gemini AI) et proposer des alternatives open-source pertinentes. L'interface doit être premium, dynamique, et entièrement en français."
 
-- **Dashboard de Blueprints** : Visualisez et gérez tous vos projets d'applications internes.
-- **App Replicator (IA)** : Entrez une URL d'un SaaS existant, et l'IA Gemini génère instantanément un Blueprint complet (Stack, Logique, Guide d'implémentation, Prompts IA).
-- **Persistance SQLite** : Toutes vos données (blueprints et états de développement) sont sauvegardées localement.
-- **Suivi d'État** : Gérez le statut de chaque blueprint (À Faire, En Cours, En Prod) et assignez des membres de l'équipe (Kael, Xavier).
-- **Export PRD & Markdown** : Générez des documents de spécifications produits (PRD) prêts à l'emploi.
+## 🎯 Raison d'être
 
-## 🚀 Installation rapide
+L'objectif de **Uprising OS** est de réduire drastiquement le temps de conception technique. Au lieu de partir de zéro, les membres de l'agence utilisent l'IA pour extraire la substantifique moelle de n'importe quel SaaS et obtenir un plan de bataille complet : stack, flux de données, modèles et prompts de génération.
 
-1. **Cloner le projet** :
+## 🚀 Comment ça fonctionne
 
-   ```bash
-   git clone <repo-url>
-   cd The-App-Builder
-   ```
+### 1. Analyse Visuelle Haute Fidélité
 
-2. **Installer les dépendances** :
+L'application ne se contente pas de lire le texte d'une URL. Elle utilise une intégration **Browserless.io (Puppeteer)** pour effectuer un rendu complet de la page cible. Cela permet de capturer l'interface, les fonctionnalités et la structure réelle même sur des sites complexes (Single Page Apps, Dashboards).
 
-   ```bash
-   npm install
-   ```
+### 2. Génération de Blueprints IA
+Une fois la donnée capturée, le moteur IA (Gemini ou Fallback Ollama) génère un **Blueprint** structuré :
 
-3. **Configuration de l'environnement** :
-   Créez un fichier `.env` à la racine (ou utilisez `.env.local`) :
+- **Stack Technique** : Frontend, Backend, Database et Hosting optimisés.
+- **Logique Métier** : Schémas de processus et modèles de données.
+- **Guide Pas à Pas** : Phases de développement avec exemples de code.
+- **Vibe Prompts** : Une liste de prompts prête à être copiée dans Cursor ou Windsurf pour coder l'application.
 
-   ```env
-   GEMINI_API_KEY=votre_cle_api_ici
-   PORT=3001
-   ```
+### 3. Recherche d'Alternatives Open Source
+Pour chaque blueprint, l'outil peut fouiller GitHub pour trouver des clones ou des alternatives open-source existantes. Cela permet à l'équipe de ne pas "réinventer la roue" en s'appuyant sur des bases de code solides déjà éprouvées.
 
-4. **Lancer l'application (Développement)** :
+### 4. Pilotage du Vibe Flow
 
-   ```bash
-   npm run dev
-   ```
+- **Gestion des États** : Suivez l'avancement de chaque blueprint (Backlog, In Progress, Done).
+- **Assignation Équipe** : Collaborez autour des projets (Kael, Xavier).
+- **Exportation Professionnelle** : Générez des documents Markdown ou des PRD (Product Requirement Documents) en un clic pour vos clients ou vos développeurs.
 
-   L'application sera accessible sur `http://localhost:3000`.
+## 🌊 Le Vibe Coding Flow
 
-## 🤖 Fallback IA (Ollama)
+Le workflow standard recommandé par l'agence :
 
-Si vous n'avez pas de clé API Gemini ou si vous souhaitez travailler en local :
+1. **Intelligence** : Identifiez une application cible et générez son blueprint.
+2. **Review** : Analysez les alternatives open-source pour accélérer le démarrage.
+3. **Prompting** : Utilisez les `Vibe Prompts` générés pour piloter votre assistant de code.
+4. **Deploy** : Livrez des applications de qualité studio en une fraction du temps traditionnel.
 
-1. Installez [Ollama](https://ollama.com/).
-2. Lancez le modèle llama3 : `ollama run llama3`.
-3. Supprimez (ou ne mettez pas) la clé `GEMINI_API_KEY` dans votre `.env`. L'application basculera automatiquement sur Ollama.
+## 🛠 Aperçu Technique
 
-## 📦 Test de Production Automatisé
+- **Frontend** : Interface premium sous React 19 et Tailwind CSS 4.
+- **Backend Orchestrator** : Node.js gérant la file d'attente d'analyse et la base SQLite.
+- **Moteur d'Analyse** : Puppeteer (via Browserless) + Gemini 1.5 Flash.
+- **Base de Données** : Persistance locale via SQLite pour une portabilité maximale au sein de l'agence.
 
-Pour une vérification complète avant déploiement (vérification Node, Env, Ollama, Build et Lancement) :
-
-```powershell
-.\test-prod.ps1
-```
-
-Ce script PowerShell s'occupe de tout : il vérifie votre environnement, lance Ollama en arrière-plan si nécessaire, compile le frontend et démarre le serveur de production.
-
-Pour un test manuel du build uniquement :
-```bash
-npm run build:test
-```
-
-## ☁️ Déploiement Vercel
-
-Le fichier `vercel.json` est inclus.
-**Note importante** : SQLite est éphémère sur Vercel. Pour une persistence réelle en ligne, migrez `server/db.js` vers une base PostgreSQL (Supabase/Neon).
-
-## 🌊 Vibe Coding Flow (Agency Best Practices)
-
-Pour transformer rapidement un blueprint en application fonctionnelle :
-
-1. **Clone** : Utilisez l'App Replicator pour générer le blueprint.
-2. **Explore** : Lisez la section `Vibe Prompts` du blueprint généré.
-3. **Implement** : Copiez les prompts un par un dans votre assistant de code (Cursor/Windsurf).
-4. **Track** : Mettez à jour le statut dans Uprising OS pour suivre l'avancement avec Xavier & Kael.
-
-## 🛠 Stack Technique
-
-- **Frontend** : React 19, Vite, Tailwind CSS 4, Framer Motion, Lucide Icons.
-- **Backend** : Node.js (Express), SQLite (via `better-sqlite3`).
-- **IA** : Google Gemini API (`gemini-1.5-flash`) + Fallback Ollama (`llama3`).
-
-## 📁 Structure du Projet
-
-- `/src` : Code source React (Composants, Layout, Styles).
-- `/server` : Backend Express et gestion de la base de données.
-- `/docs` : Documentation technique détaillée (API, etc.).
-- `/data.db` : Base de données SQLite locale.
-
-## 📝 Licence
-
-Propriété exclusive de **Uprising Agency**.
+---
+*Propriété exclusive de **Uprising Agency** - Dédié à la performance et à l'innovation logicielle.*

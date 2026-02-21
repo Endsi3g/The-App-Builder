@@ -20,7 +20,8 @@ import {
   CircleCheck,
   Trash2,
   Info,
-  ExternalLink
+  ExternalLink,
+  Rocket
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -77,6 +78,7 @@ export default function App() {
   // Replicator State
   const [replicatorUrl, setReplicatorUrl] = useState('');
   const [isReplicating, setIsReplicating] = useState(false);
+  const [isSearchingOS, setIsSearchingOS] = useState(false);
 
   useEffect(() => {
     const initData = async () => {
@@ -84,13 +86,18 @@ export default function App() {
         // Fetch Blueprints
         let res = await fetch('/api/blueprints');
         let data = await res.json();
-        
         if (data.length === 0) {
           // Seed the database with initial DOC_DATA
+          // Convert icons to names if they are components
+          const seedData = DOC_DATA.map(bp => ({
+            ...bp,
+            icon: typeof bp.icon === 'string' ? bp.icon : (bp.icon as any).displayName || (bp.icon as any).name || 'AppWindow'
+          }));
+
           await fetch('/api/blueprints/bulk', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(DOC_DATA)
+            body: JSON.stringify(seedData)
           });
           res = await fetch('/api/blueprints');
           data = await res.json();
@@ -111,6 +118,39 @@ export default function App() {
     };
     initData();
   }, []);
+
+  const handleSearchOS = async (appName: string, url: string) => {
+    setIsSearchingOS(true);
+    try {
+      const res = await fetch('/api/search-alternatives', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ appName, url })
+      });
+      if (!res.ok) throw new Error("Erreur recherche alternatives");
+      const { alternatives } = await res.json();
+      
+      const updatedContent = { ...docs.find(d => d.id === activeSectionId)!.content, alternatives };
+      
+      // Save to backend
+      await fetch(`/api/blueprints/${activeSectionId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: updatedContent })
+      });
+
+      setDocs(prev => prev.map(d => 
+        d.id === activeSectionId 
+          ? { ...d, content: updatedContent } 
+          : d
+      ));
+      addNotification("Alternatives trouvées !");
+    } catch (error: any) {
+      addNotification(error.message, "error");
+    } finally {
+      setIsSearchingOS(false);
+    }
+  };
 
   const updateToolState = async (id: string, updates: Partial<ToolState>) => {
     const newState = { ...(toolStates[id] || { status: 'backlog', assignee: null }), ...updates };
@@ -243,6 +283,9 @@ ${doc.content.vibePrompts?.prompts.map(p => `- ${p}`).join('\n')}
       setActiveSectionId(newDoc.id);
       setReplicatorUrl('');
       addNotification("Blueprint généré avec succès !");
+      
+      // Auto-search for alternatives
+      handleSearchOS(newDoc.title, replicatorUrl);
     } catch (error: any) {
       console.error("Replication error:", error);
       addNotification(error.message || 'Erreur lors de la génération.', "error");
@@ -286,13 +329,21 @@ ${doc.content.vibePrompts?.prompts.map(p => `- ${p}`).join('\n')}
             const StatusIcon = STATUS_CONFIG[state.status].icon;
 
             return (
-              <button
+              <div
                 key={section.id}
+                role="button"
+                tabIndex={0}
                 onClick={() => {
                   setActiveSectionId(section.id);
                   setIsMobileMenuOpen(false);
                 }}
-                className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors group relative
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    setActiveSectionId(section.id);
+                    setIsMobileMenuOpen(false);
+                  }
+                }}
+                className={`w-full cursor-pointer flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors group relative
                   ${isActive 
                     ? 'bg-indigo-50 text-indigo-700' 
                     : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}
@@ -312,7 +363,7 @@ ${doc.content.vibePrompts?.prompts.map(p => `- ${p}`).join('\n')}
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>
                 </div>
-              </button>
+              </div>
             );
           })}
         </nav>
@@ -339,12 +390,12 @@ ${doc.content.vibePrompts?.prompts.map(p => `- ${p}`).join('\n')}
               {isReplicating ? (
                 <>
                   <RefreshCw className="w-3 h-3 animate-spin" />
-                  Analysing...
+                  Analyse Visuelle...
                 </>
               ) : (
                 <>
                   <Plus className="w-3 h-3" />
-                  Generate Blueprint
+                  Générer Blueprint
                 </>
               )}
             </button>
@@ -578,6 +629,66 @@ ${doc.content.vibePrompts?.prompts.map(p => `- ${p}`).join('\n')}
                     </div>
                   </div>
                 </div>
+              </section>
+
+
+              {/* 3. Alternatives Open Source */}
+              <section className="bg-slate-50 rounded-2xl p-8 border border-slate-200">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                    <Rocket className="w-5 h-5 text-indigo-600" />
+                    Alternatives Open Source
+                  </h2>
+                  <button
+                    onClick={() => handleSearchOS(activeSection.title, replicatorUrl)}
+                    disabled={isSearchingOS}
+                    className="text-xs font-medium text-indigo-600 hover:text-indigo-700 flex items-center gap-1 bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm transition-all disabled:opacity-50"
+                  >
+                    {isSearchingOS ? (
+                      <RefreshCw className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <RefreshCw className="w-3 h-3" />
+                    )}
+                    Rechercher
+                  </button>
+                </div>
+
+                {!activeSection.content.alternatives || activeSection.content.alternatives.length === 0 ? (
+                  <div className="text-center py-8 bg-white rounded-xl border border-dashed border-slate-300">
+                    <div className="text-slate-400 mb-2">Aucune alternative trouvée pour le moment.</div>
+                    <p className="text-xs text-slate-500">L'IA peut fouiller GitHub pour vous.</p>
+                  </div>
+                ) : (
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    {activeSection.content.alternatives.map((alt, i) => (
+                      <a 
+                        key={i} 
+                        href={alt.url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="group bg-white p-4 rounded-xl border border-slate-200 hover:border-indigo-300 hover:shadow-md transition-all"
+                      >
+                        <div className="flex items-start justify-between mb-2">
+                          <h3 className="font-bold text-slate-900 group-hover:text-indigo-600 transition-colors uppercase text-xs tracking-wider">
+                            {alt.name}
+                          </h3>
+                          {alt.stars && (
+                            <span className="text-[10px] font-bold bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full border border-amber-100">
+                              ★ {alt.stars}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-600 line-clamp-2 mb-3 leading-relaxed">
+                          {alt.description}
+                        </p>
+                        <div className="flex items-center gap-1 text-[10px] font-medium text-indigo-600">
+                          <ExternalLink className="w-3 h-3" />
+                          Voir sur GitHub
+                        </div>
+                      </a>
+                    ))}
+                  </div>
+                )}
               </section>
 
               {/* 4. Step-by-Step Guide */}
