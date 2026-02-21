@@ -25,16 +25,41 @@
 
 3. **Configuration de l'environnement** :
    Créez un fichier `.env` à la racine (ou utilisez `.env.local`) :
+
    ```env
    GEMINI_API_KEY=votre_cle_api_ici
    PORT=3001
    ```
 
-4. **Lancer l'application** :
+4. **Lancer l'application (Développement)** :
+
    ```bash
    npm run dev
    ```
+
    L'application sera accessible sur `http://localhost:3000`.
+
+## 🤖 Fallback IA (Ollama)
+
+Si vous n'avez pas de clé API Gemini ou si vous souhaitez travailler en local :
+1. Installez [Ollama](https://ollama.com/).
+2. Lancez le modèle llama3 : `ollama run llama3`.
+3. Supprimez (ou ne mettez pas) la clé `GEMINI_API_KEY` dans votre `.env`. L'application basculera automatiquement sur Ollama.
+
+## 📦 Test de Production Local
+
+Pour tester l'application telle qu'elle sera en production (build optimisé) :
+
+```bash
+npm run build:test
+```
+
+Cette commande compile le frontend dans `/dist` et lance le serveur Node qui servira les fichiers statiques sur le port `3001`.
+
+## ☁️ Déploiement Vercel
+
+Le fichier `vercel.json` est inclus. 
+**Note importante** : SQLite est éphémère sur Vercel. Pour une persistence réelle en ligne, migrez `server/db.js` vers une base PostgreSQL (Supabase/Neon).
 
 ## 🛠 Stack Technique
 

@@ -2,15 +2,22 @@ import express from 'express';
 import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
 import db from './db.js';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import fs from 'fs';
+import fetch from 'node-fetch';
 
 dotenv.config();
 dotenv.config({ path: '.env.local' });
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
 app.use(express.json());
 
 // Init Gemini
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || 'dummy-key' });
 
 // Routes for Blueprints
 app.get('/api/blueprints', (req, res) => {
@@ -83,15 +90,13 @@ app.post('/api/tool-states', (req, res) => {
   }
 });
 
-// Generate Blueprint with Gemini
+// Generate Blueprint with Gemini or Ollama Fallback
 app.post('/api/replicate', async (req, res) => {
   const { url } = req.body;
   if (!url) return res.status(400).json({ error: 'URL is required' });
 
-  if (!process.env.GEMINI_API_KEY) {
-    return res.status(500).json({ error: 'La clé API Gemini (GEMINI_API_KEY) n\'est pas configurée.' });
-  }
-
+  const useGemini = !!process.env.GEMINI_API_KEY;
+  
   try {
     let hostname = 'unknown-app';
     try {
@@ -111,96 +116,105 @@ Le format final de la réponse doit être UNIQUEMENT un objet JSON valide, sans 
 Voici la structure JSON attendue :
 {
   "overview": {
-    "objective": "Un objectif clair pour l'agence (Remplacer SaaS tierce).",
+    "objective": "Un objectif clair pour l'agence.",
     "useCase": "Cas d'usage interne.",
     "customVsFreemium": "Pourquoi le refaire en interne ?",
-    "replaces": "Nom exact de l'app visée",
+    "replaces": "${capitalizedAppName}",
     "coreFeatures": ["Feature 1", "Feature 2", "Feature 3", "Feature 4", "Feature 5"],
-    "complexity": "Faible" / "Moyenne" / "Élevée"
+    "complexity": "Moyenne"
   },
   "techStack": {
-    "frontend": "React, Tailwind CSS, Lucide Icons",
-    "backend": "Supabase (PostgreSQL, Auth)",
-    "database": "PostgreSQL",
-    "auth": "Supabase Auth",
+    "frontend": "React, Tailwind",
+    "backend": "SQLite, Express",
+    "database": "SQLite",
+    "auth": "JWT simple",
     "hosting": "Vercel",
-    "dependencies": ["@supabase/supabase-js", "react-router-dom"],
-    "architectureDiagram": "Client (React) <-> API <-> DB"
+    "dependencies": ["lucide-react"],
+    "architectureDiagram": "Client -> Server -> DB"
   },
   "logic": {
-    "processSchema": "Étapes clés du flux utilisateur",
+    "processSchema": "Workflow utilisateur",
     "dataFlow": "Flux de données",
-    "dataModels": "Liste des entités principales",
+    "dataModels": "Entités DB",
     "businessLogic": "Règles métier",
-    "integrations": ["API externes possibles"]
+    "integrations": []
   },
   "guide": {
     "phases": [
       {
-        "title": "Phase 1: Nom de phase",
-        "description": "Description",
-        "steps": ["Étape 1", "Étape 2", "Étape 3"],
-        "code": "// snippet optionnel de code"
+        "title": "Phase 1: Setup",
+        "description": "Initialisation",
+        "steps": ["Step 1"],
+        "code": "// console.log('hello')"
       }
     ],
-    "validationChecklist": ["Check 1", "Check 2", "Check 3"]
+    "validationChecklist": ["Vérification 1"]
   },
   "deployment": {
-    "vercelConfig": "Standard React App",
-    "envVars": ["VAR_1", "VAR_2"],
-    "cicd": "GitHub Actions",
-    "dns": "${appName}.uprising.agency",
-    "monitoring": "Vercel Analytics",
-    "backup": "Supabase PITR",
-    "rollback": "Git Revert"
+    "vercelConfig": "Standard",
+    "envVars": ["PORT"],
+    "cicd": "Git",
+    "dns": "uprising.agency",
+    "monitoring": "Simple",
+    "backup": "Script",
+    "rollback": "Git"
   },
   "maintenance": {
-    "tasks": ["Tâche de maintenance 1", "Tâche 2"],
-    "metrics": ["Métrique 1", "Métrique 2"],
-    "updates": "Mensuelles",
+    "tasks": ["Maj dependencies"],
+    "metrics": ["Uptime"],
+    "updates": "Hebdo",
     "support": "Interne",
-    "costs": "Minimes",
-    "scalability": "Horizontal"
+    "costs": "0",
+    "scalability": "Vertical"
   },
   "estimation": {
-    "time": "XX heures",
+    "time": "10h",
     "skillLevel": "Intermédiaire",
-    "infraCosts": "0$",
-    "roi": "Description du ROI"
+    "infraCosts": "0",
+    "roi": "Gain de temps"
   },
   "vibePrompts": {
-    "title": "Vibe Coding: ${capitalizedAppName} Clone",
-    "prompts": [
-      "Prompt IA 1 pour initier la structure",
-      "Prompt IA 2 pour la BD",
-      "Prompt IA 3 pour le composant central",
-      "Prompt IA 4"
-    ]
+    "title": "Vibe Coding",
+    "prompts": ["Prompt 1"]
   }
 }
 `;
 
-    const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json"
+    let text;
+    if (useGemini) {
+      console.log("Using Gemini for generation...");
+      const result = await ai.getGenerativeModel({ model: 'gemini-1.5-flash' }).generateContent(prompt);
+      text = result.response.text();
+    } else {
+      console.log("Gemini API key missing. Falling back to Ollama (llama3)...");
+      try {
+        const ollamaRes = await fetch('http://localhost:11434/api/generate', {
+          method: 'POST',
+          body: JSON.stringify({
+            model: 'llama3',
+            prompt: prompt + "\n\nRenvoie UNIQUEMENT le JSON.",
+            stream: false
+          })
+        });
+        const ollamaData = await ollamaRes.json();
+        text = ollamaData.response;
+      } catch (ollamaErr) {
+        throw new Error('Ni Gemini ni Ollama ne sont disponibles. Assurez-vous d\'avoir une clé API ou Ollama lancé avec llama3.');
       }
-    });
+    }
 
-    const text = response.text();
     let parsedContent;
     try {
       parsedContent = JSON.parse(text);
     } catch (e) {
-      // Nettoyer si jamais il y a des backticks
-      const clean = text.replace(/\`\`\`json/g, '').replace(/\`\`\`/g, '').trim();
+      // Cleanup backticks
+      const clean = text.replace(/```json/g, '').replace(/```/g, '').trim();
       parsedContent = JSON.parse(clean);
     }
 
     const newDoc = {
-      id: \`replicated-\${Date.now()}\`,
-      title: \`Clone: \${capitalizedAppName}\`,
+      id: `replicated-${Date.now()}`,
+      title: `Clone: ${capitalizedAppName}`,
       icon: 'Sparkles',
       content: parsedContent
     };
@@ -211,12 +225,23 @@ Voici la structure JSON attendue :
 
     res.json(newDoc);
   } catch (error) {
-    console.error("Gemini Error:", error);
-    res.status(500).json({ error: 'Erreur lors de la génération avec Gemini. Vérifiez que la GEMINI_API_KEY est valide.' });
+    console.error("AI Error:", error.message);
+    res.status(500).json({ error: error.message || 'Erreur lors de la génération.' });
   }
 });
 
+// Serve static files in production
+const distPath = path.join(__dirname, '../dist');
+if (fs.existsSync(distPath)) {
+  console.log("Serving static files from dist...");
+  app.use(express.static(distPath));
+  app.get('*', (req, res, next) => {
+    if (req.path.startsWith('/api')) return next();
+    res.sendFile(path.join(distPath, 'index.html'));
+  });
+}
+
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
-  console.log(\`Server is running on port \${PORT}\`);
+  console.log(`Server is running on port ${PORT}`);
 });
