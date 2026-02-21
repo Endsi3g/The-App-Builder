@@ -1,20 +1,53 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# Uprising OS - Agency App Builder
 
-# Run and deploy your AI Studio app
+**Uprising OS** est un outil interne conçu pour l'agence afin de transformer rapidement des idées d'applications ou des SaaS existants en Blueprints techniques actionnables. L'objectif est de permettre un "Vibe Coding" rapide tout en conservant une structure technique solide basée sur React, Node.js et SQLite.
 
-This contains everything you need to run your app locally.
+## ✨ Fonctionnalités
 
-View your app in AI Studio: https://ai.studio/apps/42fa796d-e620-40c0-8ac2-f1e1638fe997
+- **Dashboard de Blueprints** : Visualisez et gérez tous vos projets d'applications internes.
+- **App Replicator (IA)** : Entrez une URL d'un SaaS existant, et l'IA Gemini génère instantanément un Blueprint complet (Stack, Logique, Guide d'implémentation, Prompts IA).
+- **Persistance SQLite** : Toutes vos données (blueprints et états de développement) sont sauvegardées localement.
+- **Suivi d'État** : Gérez le statut de chaque blueprint (À Faire, En Cours, En Prod) et assignez des membres de l'équipe (Kael, Xavier).
+- **Export PRD & Markdown** : Générez des documents de spécifications produits (PRD) prêts à l'emploi.
 
-## Run Locally
+## 🚀 Installation rapide
 
-**Prerequisites:**  Node.js
+1. **Cloner le projet** :
+   ```bash
+   git clone <repo-url>
+   cd The-App-Builder
+   ```
 
+2. **Installer les dépendances** :
+   ```bash
+   npm install
+   ```
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+3. **Configuration de l'environnement** :
+   Créez un fichier `.env` à la racine (ou utilisez `.env.local`) :
+   ```env
+   GEMINI_API_KEY=votre_cle_api_ici
+   PORT=3001
+   ```
+
+4. **Lancer l'application** :
+   ```bash
+   npm run dev
+   ```
+   L'application sera accessible sur `http://localhost:3000`.
+
+## 🛠 Stack Technique
+
+- **Frontend** : React 19, Vite, Tailwind CSS 4, Framer Motion, Lucide Icons.
+- **Backend** : Node.js (Express), SQLite (via `better-sqlite3`).
+- **IA** : Google Gemini API (`gemini-1.5-flash`).
+
+## 📁 Structure du Projet
+
+- `/src` : Code source React (Composants, Layout, Styles).
+- `/server` : Backend Express et gestion de la base de données.
+- `/data.db` : Base de données SQLite locale.
+
+## 📝 Licence
+
+Propriété exclusive de **Uprising Agency**.

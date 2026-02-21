@@ -56,29 +56,64 @@ const TEAM_MEMBERS = ['Non assigné', 'Kael', 'Xavier Tardif'];
 
 export default function App() {
   const [docs, setDocs] = useState<DocSection[]>(DOC_DATA);
-  const [activeSectionId, setActiveSectionId] = useState<string>(DOC_DATA[0].id);
+  const [activeSectionId, setActiveSectionId] = useState<string>(DOC_DATA[0]?.id || '');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  
-  // Tool States (Persistence)
-  const [toolStates, setToolStates] = useState<Record<string, ToolState>>(() => {
-    const saved = localStorage.getItem('uprising_tool_states');
-    return saved ? JSON.parse(saved) : {};
-  });
-
-  useEffect(() => {
-    localStorage.setItem('uprising_tool_states', JSON.stringify(toolStates));
-  }, [toolStates]);
-
-  const updateToolState = (id: string, updates: Partial<ToolState>) => {
-    setToolStates(prev => ({
-      ...prev,
-      [id]: { ...(prev[id] || { status: 'backlog', assignee: null }), ...updates }
-    }));
-  };
+  const [toolStates, setToolStates] = useState<Record<string, ToolState>>({});
   
   // Replicator State
   const [replicatorUrl, setReplicatorUrl] = useState('');
   const [isReplicating, setIsReplicating] = useState(false);
+
+  useEffect(() => {
+    const initData = async () => {
+      try {
+        // Fetch Blueprints
+        let res = await fetch('/api/blueprints');
+        let data = await res.json();
+        
+        if (data.length === 0) {
+          // Seed the database with initial DOC_DATA
+          await fetch('/api/blueprints/bulk', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(DOC_DATA)
+          });
+          res = await fetch('/api/blueprints');
+          data = await res.json();
+        }
+        
+        if (data.length > 0) {
+          setDocs(data);
+          setActiveSectionId(data[0].id);
+        }
+
+        // Fetch Tool States
+        const statesRes = await fetch('/api/tool-states');
+        const statesData = await statesRes.json();
+        setToolStates(statesData);
+      } catch (error) {
+        console.error("Failed to load initial data:", error);
+      }
+    };
+    initData();
+  }, []);
+
+  const updateToolState = async (id: string, updates: Partial<ToolState>) => {
+    const newState = { ...(toolStates[id] || { status: 'backlog', assignee: null }), ...updates };
+    
+    // Optimistic update
+    setToolStates(prev => ({ ...prev, [id]: newState }));
+
+    try {
+      await fetch('/api/tool-states', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, ...newState })
+      });
+    } catch (error) {
+      console.error("Failed to update tool state:", error);
+    }
+  };
 
   const activeSection = docs.find(s => s.id === activeSectionId) || docs[0];
   const currentToolState = toolStates[activeSectionId] || { status: 'backlog', assignee: null };
@@ -152,123 +187,33 @@ ${doc.content.vibePrompts?.prompts.map(p => `- ${p}`).join('\n')}
     alert('Copié dans le presse-papier !');
   };
 
-  const handleReplicate = () => {
+  const handleReplicate = async () => {
     if (!replicatorUrl) return;
     setIsReplicating(true);
     
-    // Simulate AI Analysis
-    setTimeout(() => {
-      let hostname = 'unknown-app';
-      try {
-        hostname = new URL(replicatorUrl).hostname;
-      } catch (e) {
-        hostname = replicatorUrl.replace(/https?:\/\//, '').split('/')[0];
-      }
-      
-      const appName = hostname.split('.')[0] === 'www' ? hostname.split('.')[1] : hostname.split('.')[0];
-      const capitalizedAppName = appName.charAt(0).toUpperCase() + appName.slice(1);
+    try {
+      const res = await fetch('/api/replicate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: replicatorUrl })
+      });
 
-      const newDoc: DocSection = {
-        id: `replicated-${Date.now()}`,
-        title: `Clone: ${capitalizedAppName}`,
-        icon: Sparkles,
-        content: {
-          overview: {
-            objective: `Développer une alternative interne à ${capitalizedAppName} pour éliminer les coûts de licence et posséder les données.`,
-            useCase: `Utilisation interne par l'agence pour remplacer ${capitalizedAppName} dans les workflows quotidiens.`,
-            customVsFreemium: "Contrôle total des données, pas de limites d'utilisateurs, fonctionnalités sur mesure adaptées à l'agence.",
-            replaces: `Abonnement ${capitalizedAppName} (${replicatorUrl})`,
-            coreFeatures: ["Auth Utilisateur", "Dashboard", "Gestion des Données", "Paramètres", "Export"],
-            complexity: 'Élevée'
-          },
-          techStack: {
-            frontend: "React, Tailwind CSS, Lucide Icons",
-            backend: "Supabase (PostgreSQL, Auth)",
-            database: "PostgreSQL",
-            auth: "Supabase Auth",
-            hosting: "Vercel",
-            recommended: ["React", "Supabase", "Tailwind"],
-            dependencies: ["@supabase/supabase-js", "react-router-dom", "zustand"],
-            architectureDiagram: `Client (React) <-> Supabase <-> ${capitalizedAppName} Logic`
-          },
-          logic: {
-            processSchema: `Analyse des flux de ${capitalizedAppName} -> Simplification -> Implémentation`,
-            dataFlow: "Utilisateur -> Interface Clone -> API Supabase -> DB",
-            dataModels: "Users, Items, Settings, Logs",
-            businessLogic: `Réplication de la logique métier principale de ${capitalizedAppName} avec des simplifications pour l'agence.`,
-            integrations: ["Slack", "Email", "Export CSV"]
-          },
-          guide: {
-            phases: [
-              {
-                title: "Phase 1: Reverse Engineering",
-                description: "Analyse des fonctionnalités clés de l'application cible.",
-                steps: ["Lister les écrans principaux", "Identifier les modèles de données", "Mapper les interactions utilisateur"],
-                code: "// Pas de code pour cette phase d'analyse"
-              },
-              {
-                title: "Phase 2: Echafaudage (Scaffolding)",
-                description: "Mise en place de la structure du projet clone.",
-                steps: [`uprising create ${appName}-clone`, "Setup Supabase project", "Config Auth"],
-                code: `npm create vite@latest ${appName}-clone -- --template react-ts`
-              },
-              {
-                title: "Phase 3: Développement Core",
-                description: "Implémentation des fonctionnalités MVP.",
-                steps: ["Dev Layout & Navigation", "Dev CRUD Entités", "Dev Settings"],
-                code: `// Exemple de structure
-const AppLayout = () => (
-  <div className="flex h-screen">
-    <Sidebar />
-    <main className="flex-1 overflow-auto">
-      <Outlet />
-    </main>
-  </div>
-);`
-              }
-            ],
-            validationChecklist: ["Login fonctionnel", "CRUD principal opérationnel", "Données persistées"]
-          },
-          deployment: {
-            vercelConfig: "Standard React App",
-            envVars: ["VITE_SUPABASE_URL", "VITE_SUPABASE_ANON_KEY"],
-            cicd: "GitHub Actions",
-            dns: `${appName}.agence.internal`,
-            monitoring: "Vercel Analytics",
-            backup: "Supabase PITR",
-            rollback: "Git Revert"
-          },
-          maintenance: {
-            tasks: ["Monitoring des quotas Supabase", "Mises à jour de sécurité"],
-            metrics: ["Utilisation active", "Performance"],
-            updates: "Mensuelles",
-            support: "Interne",
-            costs: "Minimes (Hosting gratuit)",
-            scalability: "Horizontal scaling via Supabase"
-          },
-          estimation: {
-            time: "40 heures",
-            skillLevel: "Avancé",
-            infraCosts: "0$",
-            roi: "Variable (dépend du coût de l'outil original)"
-          },
-          vibePrompts: {
-            title: `Vibe Coding: ${capitalizedAppName} Clone`,
-            prompts: [
-              `Agis comme un expert produit. Analyse l'application ${capitalizedAppName} et liste ses 5 fonctionnalités les plus critiques pour une agence.`,
-              `Génère un schéma de base de données PostgreSQL pour cloner les fonctionnalités principales de ${capitalizedAppName}.`,
-              `Crée une structure de composants React pour reproduire le layout de ${capitalizedAppName} (Sidebar, Header, Main Content).`,
-              `Écris les politiques RLS Supabase pour sécuriser les données du clone de ${capitalizedAppName}.`
-            ]
-          }
-        }
-      };
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to generate blueprint');
+      }
+
+      const newDoc = await res.json();
       
-      setDocs([...docs, newDoc]);
+      setDocs(prevDocs => [...prevDocs, newDoc]);
       setActiveSectionId(newDoc.id);
       setReplicatorUrl('');
+    } catch (error: any) {
+      console.error("Replication error:", error);
+      alert(error.message || 'Une erreur est survenue lors de la génération.');
+    } finally {
       setIsReplicating(false);
-    }, 1500);
+    }
   };
 
   return (
@@ -287,7 +232,7 @@ const AppLayout = () => (
       {/* Sidebar Navigation */}
       <aside className={`
         fixed inset-y-0 left-0 z-10 w-72 bg-white border-r border-slate-200 transform transition-transform duration-200 ease-in-out flex flex-col
-        md:translate-x-0 md:static md:h-screen md:sticky md:top-0
+        md:translate-x-0 md:sticky md:top-0 md:h-screen
         ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         <div className="p-6 border-b border-slate-100 hidden md:flex items-center gap-2 font-bold text-xl text-slate-800">
@@ -598,7 +543,7 @@ const AppLayout = () => (
                   {activeSection.content.guide.phases.map((phase, index) => (
                     <div key={index} className="group">
                       <div className="flex items-start gap-4">
-                        <div className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-sm">
+                        <div className="shrink-0 w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-sm">
                           {index + 1}
                         </div>
                         <div className="flex-1 space-y-3">
@@ -643,7 +588,7 @@ const AppLayout = () => (
                 <ul className="space-y-3">
                   {activeSection.content.guide.validationChecklist.map((item, i) => (
                     <li key={i} className="flex items-start gap-3 text-emerald-800 text-sm">
-                      <div className="mt-0.5 w-4 h-4 rounded border border-emerald-400 flex-shrink-0"></div>
+                      <div className="mt-0.5 w-4 h-4 rounded border border-emerald-400 shrink-0"></div>
                       {item}
                     </li>
                   ))}
@@ -652,7 +597,7 @@ const AppLayout = () => (
 
               {/* 7. Vibe Coding Prompts */}
               {activeSection.content.vibePrompts && (
-                <section className="bg-gradient-to-br from-indigo-900 to-slate-900 rounded-xl p-6 border border-indigo-500/30 text-white shadow-xl overflow-hidden relative">
+                <section className="bg-linear-to-br from-indigo-900 to-slate-900 rounded-xl p-6 border border-indigo-500/30 text-white shadow-xl overflow-hidden relative">
                   <div className="absolute top-0 right-0 p-4 opacity-10">
                     <Sparkles className="w-32 h-32" />
                   </div>
@@ -664,7 +609,7 @@ const AppLayout = () => (
                     {activeSection.content.vibePrompts.prompts.map((prompt, i) => (
                       <div key={i} className="group bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg p-4 transition-colors">
                         <div className="flex items-start gap-4">
-                          <div className="flex-shrink-0 w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-300 flex items-center justify-center text-xs font-bold mt-0.5">
+                          <div className="shrink-0 w-6 h-6 rounded-full bg-indigo-500/20 text-indigo-300 flex items-center justify-center text-xs font-bold mt-0.5">
                             {i + 1}
                           </div>
                           <div className="flex-1">
