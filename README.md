@@ -46,15 +46,20 @@ Si vous n'avez pas de clé API Gemini ou si vous souhaitez travailler en local :
 2. Lancez le modèle llama3 : `ollama run llama3`.
 3. Supprimez (ou ne mettez pas) la clé `GEMINI_API_KEY` dans votre `.env`. L'application basculera automatiquement sur Ollama.
 
-## 📦 Test de Production Local
+## 📦 Test de Production Automatisé
 
-Pour tester l'application telle qu'elle sera en production (build optimisé) :
+Pour une vérification complète avant déploiement (vérification Node, Env, Ollama, Build et Lancement) :
 
+```powershell
+.\test-prod.ps1
+```
+
+Ce script PowerShell s'occupe de tout : il vérifie votre environnement, lance Ollama en arrière-plan si nécessaire, compile le frontend et démarre le serveur de production.
+
+Pour un test manuel du build uniquement :
 ```bash
 npm run build:test
 ```
-
-Cette commande compile le frontend dans `/dist` et lance le serveur Node qui servira les fichiers statiques sur le port `3001`.
 
 ## ☁️ Déploiement Vercel
 
