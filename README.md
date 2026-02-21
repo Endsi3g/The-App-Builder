@@ -61,16 +61,26 @@ Cette commande compile le frontend dans `/dist` et lance le serveur Node qui ser
 Le fichier `vercel.json` est inclus. 
 **Note importante** : SQLite est éphémère sur Vercel. Pour une persistence réelle en ligne, migrez `server/db.js` vers une base PostgreSQL (Supabase/Neon).
 
+## 🌊 Vibe Coding Flow (Agency Best Practices)
+
+Pour transformer rapidement un blueprint en application fonctionnelle :
+
+1.  **Clone** : Utilisez l'App Replicator pour générer le blueprint.
+2.  **Explore** : Lisez la section `Vibe Prompts` du blueprint généré.
+3.  **Implement** : Copiez les prompts un par un dans votre assistant de code (Cursor/Windsurf).
+4.  **Track** : Mettez à jour le statut dans Uprising OS pour suivre l'avancement avec Xavier & Kael.
+
 ## 🛠 Stack Technique
 
 - **Frontend** : React 19, Vite, Tailwind CSS 4, Framer Motion, Lucide Icons.
 - **Backend** : Node.js (Express), SQLite (via `better-sqlite3`).
-- **IA** : Google Gemini API (`gemini-1.5-flash`).
+- **IA** : Google Gemini API (`gemini-1.5-flash`) + Fallback Ollama (`llama3`).
 
 ## 📁 Structure du Projet
 
 - `/src` : Code source React (Composants, Layout, Styles).
 - `/server` : Backend Express et gestion de la base de données.
+- `/docs` : Documentation technique détaillée (API, etc.).
 - `/data.db` : Base de données SQLite locale.
 
 ## 📝 Licence

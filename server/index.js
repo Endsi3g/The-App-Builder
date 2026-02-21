@@ -16,6 +16,21 @@ const __dirname = path.dirname(__filename);
 const app = express();
 app.use(express.json());
 
+// Simple Logger
+app.use((req, res, next) => {
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
+  next();
+});
+
+// Health Check
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    uptime: process.uptime(),
+    db: db ? 'connected' : 'error'
+  });
+});
+
 // Init Gemini
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || 'dummy-key' });
 
@@ -60,6 +75,26 @@ app.post('/api/blueprints/bulk', (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ error: 'Failed to bulk save blueprints' });
+  }
+});
+
+app.delete('/api/blueprints/:id', (req, res) => {
+  try {
+    const { id } = req.params;
+    const stmt = db.prepare('DELETE FROM blueprints WHERE id = ?');
+    const result = stmt.run(id);
+    
+    if (result.changes === 0) {
+      return res.status(404).json({ error: 'Blueprint not found' });
+    }
+    
+    // Also cleanup tool state
+    db.prepare('DELETE FROM tool_states WHERE id = ?').run(id);
+    
+    res.json({ success: true });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Failed to delete blueprint' });
   }
 });
 

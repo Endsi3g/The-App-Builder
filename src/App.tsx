@@ -17,7 +17,10 @@ import {
   UserPlus,
   CircleDashed,
   Loader2,
-  CheckCircle
+  CheckCircle,
+  Trash2,
+  Info,
+  ExternalLink
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -59,6 +62,17 @@ export default function App() {
   const [activeSectionId, setActiveSectionId] = useState<string>(DOC_DATA[0]?.id || '');
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [toolStates, setToolStates] = useState<Record<string, ToolState>>({});
+  
+  // UI State
+  const [notifications, setNotifications] = useState<{id: string, message: string, type: 'success' | 'error'}[]>([]);
+  
+  const addNotification = (message: string, type: 'success' | 'error' = 'success') => {
+    const id = Date.now().toString();
+    setNotifications(prev => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    }, 3000);
+  };
   
   // Replicator State
   const [replicatorUrl, setReplicatorUrl] = useState('');
@@ -105,13 +119,33 @@ export default function App() {
     setToolStates(prev => ({ ...prev, [id]: newState }));
 
     try {
-      await fetch('/api/tool-states', {
+      const res = await fetch('/api/tool-states', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id, ...newState })
       });
+      if (!res.ok) throw new Error();
     } catch (error) {
       console.error("Failed to update tool state:", error);
+      addNotification("Erreur de sauvegarde de l'état", "error");
+    }
+  };
+
+  const handleDeleteBlueprint = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!confirm('Voulez-vous vraiment supprimer ce blueprint ?')) return;
+
+    try {
+      const res = await fetch(`/api/blueprints/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error();
+
+      setDocs(prev => prev.filter(d => d.id !== id));
+      if (activeSectionId === id) {
+        setActiveSectionId(docs.find(d => d.id !== id)?.id || '');
+      }
+      addNotification("Blueprint supprimé");
+    } catch (error) {
+      addNotification("Erreur lors de la suppression", "error");
     }
   };
 
@@ -208,9 +242,10 @@ ${doc.content.vibePrompts?.prompts.map(p => `- ${p}`).join('\n')}
       setDocs(prevDocs => [...prevDocs, newDoc]);
       setActiveSectionId(newDoc.id);
       setReplicatorUrl('');
+      addNotification("Blueprint généré avec succès !");
     } catch (error: any) {
       console.error("Replication error:", error);
-      alert(error.message || 'Une erreur est survenue lors de la génération.');
+      addNotification(error.message || 'Erreur lors de la génération.', "error");
     } finally {
       setIsReplicating(false);
     }
@@ -266,8 +301,17 @@ ${doc.content.vibePrompts?.prompts.map(p => `- ${p}`).join('\n')}
                 <Icon className={`w-5 h-5 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} />
                 <span className="truncate flex-1 text-left">{section.title}</span>
                 
-                {/* Status Indicator in Sidebar */}
-                <div className={`w-2 h-2 rounded-full ${state.status === 'live' ? 'bg-emerald-400' : state.status === 'building' ? 'bg-indigo-400' : 'bg-slate-200'}`} />
+                {/* Delete/Status controls */}
+                <div className="flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full ${state.status === 'live' ? 'bg-emerald-400' : state.status === 'building' ? 'bg-indigo-400' : 'bg-slate-200'}`} />
+                  <button 
+                    onClick={(e) => handleDeleteBlueprint(section.id, e)}
+                    className="opacity-0 group-hover:opacity-100 p-1 hover:text-red-500 transition-all"
+                    title="Supprimer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </div>
               </button>
             );
           })}
@@ -668,6 +712,28 @@ ${doc.content.vibePrompts?.prompts.map(p => `- ${p}`).join('\n')}
           </footer>
         </div>
       </main>
+
+      {/* Notifications Overlay */}
+      <div className="fixed bottom-6 right-6 z-50 flex flex-col gap-2">
+        <AnimatePresence>
+          {notifications.map(n => (
+            <motion.div
+              key={n.id}
+              initial={{ opacity: 0, x: 20, scale: 0.95 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className={`flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg border backdrop-blur-md ${
+                n.type === 'error' 
+                  ? 'bg-red-50/90 border-red-100 text-red-800' 
+                  : 'bg-white/90 border-white text-slate-800'
+              }`}
+            >
+              {n.type === 'error' ? <AlertTriangle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4 text-emerald-500" />}
+              <span className="text-sm font-medium">{n.message}</span>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
     </div>
   );
 }
