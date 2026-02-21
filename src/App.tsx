@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DOC_DATA, DocSection } from './data';
 import { 
   Menu, 
@@ -13,7 +13,11 @@ import {
   Sparkles,
   Plus,
   RefreshCw,
-  Wand2
+  Wand2,
+  UserPlus,
+  CircleDashed,
+  Loader2,
+  CheckCircle
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -36,16 +40,117 @@ function CopyButton({ code }: { code: string }) {
   );
 }
 
+type ToolStatus = 'backlog' | 'building' | 'live';
+type ToolState = {
+  status: ToolStatus;
+  assignee: string | null;
+};
+
+const STATUS_CONFIG = {
+  backlog: { label: 'À Faire', icon: CircleDashed, color: 'text-slate-400', bg: 'bg-slate-100' },
+  building: { label: 'En Cours', icon: Loader2, color: 'text-indigo-500', bg: 'bg-indigo-50' },
+  live: { label: 'En Prod', icon: CheckCircle, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+};
+
+const TEAM_MEMBERS = ['Non assigné', 'Kael', 'Xavier Tardif'];
+
 export default function App() {
   const [docs, setDocs] = useState<DocSection[]>(DOC_DATA);
   const [activeSectionId, setActiveSectionId] = useState<string>(DOC_DATA[0].id);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  
+  // Tool States (Persistence)
+  const [toolStates, setToolStates] = useState<Record<string, ToolState>>(() => {
+    const saved = localStorage.getItem('uprising_tool_states');
+    return saved ? JSON.parse(saved) : {};
+  });
+
+  useEffect(() => {
+    localStorage.setItem('uprising_tool_states', JSON.stringify(toolStates));
+  }, [toolStates]);
+
+  const updateToolState = (id: string, updates: Partial<ToolState>) => {
+    setToolStates(prev => ({
+      ...prev,
+      [id]: { ...(prev[id] || { status: 'backlog', assignee: null }), ...updates }
+    }));
+  };
   
   // Replicator State
   const [replicatorUrl, setReplicatorUrl] = useState('');
   const [isReplicating, setIsReplicating] = useState(false);
 
   const activeSection = docs.find(s => s.id === activeSectionId) || docs[0];
+  const currentToolState = toolStates[activeSectionId] || { status: 'backlog', assignee: null };
+
+  const generateMarkdown = (doc: DocSection) => {
+    const c = doc.content;
+    return `# ${doc.title}
+
+## Vue d'ensemble
+**Objectif:** ${c.overview.objective}
+**Cas d'usage:** ${c.overview.useCase}
+**Remplace:** ${c.overview.replaces}
+**Complexité:** ${c.overview.complexity}
+
+## Stack Technique
+- **Frontend:** ${c.techStack.frontend}
+- **Backend:** ${c.techStack.backend}
+- **Database:** ${c.techStack.database}
+- **Auth:** ${c.techStack.auth}
+- **Hosting:** ${c.techStack.hosting}
+
+## Logique Métier
+**Processus:** ${c.logic.processSchema}
+**Flux de données:** ${c.logic.dataFlow}
+**Modèles:** ${c.logic.dataModels}
+
+## Guide d'Implémentation
+${c.guide.phases.map(p => `### ${p.title}
+${p.description}
+${p.steps.map(s => `- ${s}`).join('\n')}
+${p.code ? `\`\`\`typescript
+${p.code}
+\`\`\`` : ''}`).join('\n\n')}
+
+## Déploiement
+**Config Vercel:** ${c.deployment.vercelConfig}
+**Env Vars:** ${c.deployment.envVars.join(', ')}
+
+## Maintenance
+${c.maintenance.tasks.map(t => `- ${t}`).join('\n')}
+`;
+  };
+
+  const generatePRD = (doc: DocSection) => {
+    return `# PRD: ${doc.title}
+> Document de Référence Produit pour l'Agence Uprising
+
+## 1. Contexte & Vision
+Nous souhaitons internaliser cet outil pour réduire notre dépendance aux SaaS tiers et adapter les workflows à notre équipe (Kael & Xavier).
+**Cible:** Équipe interne (2 personnes).
+**Contrainte:** Budget < 50$/mois, Dev < 20h.
+
+## 2. Règles de "Vibe Coding"
+Pour le développement assisté par IA (Cursor/Windsurf), suivre ces directives :
+1. **Keep it Simple:** Pas de sur-ingénierie. Une seule fonctionnalité à la fois.
+2. **Stack Strict:** React + Vite + Tailwind + Supabase. Pas de nouvelles libs sans validation.
+3. **UI First:** Toujours valider l'interface avant la logique complexe.
+4. **Typescript:** Typage strict obligatoire pour la maintenabilité.
+5. **Dry Run:** Demander à l'IA d'expliquer son plan avant de générer le code.
+
+## 3. Spécifications Techniques
+${generateMarkdown(doc)}
+
+## 4. Prompts de Démarrage
+${doc.content.vibePrompts?.prompts.map(p => `- ${p}`).join('\n')}
+`;
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    alert('Copié dans le presse-papier !');
+  };
 
   const handleReplicate = () => {
     if (!replicatorUrl) return;
@@ -53,46 +158,108 @@ export default function App() {
     
     // Simulate AI Analysis
     setTimeout(() => {
+      let hostname = 'unknown-app';
+      try {
+        hostname = new URL(replicatorUrl).hostname;
+      } catch (e) {
+        hostname = replicatorUrl.replace(/https?:\/\//, '').split('/')[0];
+      }
+      
+      const appName = hostname.split('.')[0] === 'www' ? hostname.split('.')[1] : hostname.split('.')[0];
+      const capitalizedAppName = appName.charAt(0).toUpperCase() + appName.slice(1);
+
       const newDoc: DocSection = {
         id: `replicated-${Date.now()}`,
-        title: `Clone: ${new URL(replicatorUrl).hostname}`,
+        title: `Clone: ${capitalizedAppName}`,
         icon: Sparkles,
         content: {
           overview: {
-            objective: `Répliquer les fonctionnalités clés de ${replicatorUrl} pour un usage interne.`,
-            useCase: "Création d'une alternative propriétaire sans frais récurrents.",
-            customVsFreemium: "Possession totale des données et personnalisation illimitée.",
-            replaces: `Abonnement ${replicatorUrl}`
+            objective: `Développer une alternative interne à ${capitalizedAppName} pour éliminer les coûts de licence et posséder les données.`,
+            useCase: `Utilisation interne par l'agence pour remplacer ${capitalizedAppName} dans les workflows quotidiens.`,
+            customVsFreemium: "Contrôle total des données, pas de limites d'utilisateurs, fonctionnalités sur mesure adaptées à l'agence.",
+            replaces: `Abonnement ${capitalizedAppName} (${replicatorUrl})`,
+            coreFeatures: ["Auth Utilisateur", "Dashboard", "Gestion des Données", "Paramètres", "Export"],
+            complexity: 'Élevée'
           },
           techStack: {
+            frontend: "React, Tailwind CSS, Lucide Icons",
+            backend: "Supabase (PostgreSQL, Auth)",
+            database: "PostgreSQL",
+            auth: "Supabase Auth",
+            hosting: "Vercel",
             recommended: ["React", "Supabase", "Tailwind"],
-            dependencies: ["Analyse en cours..."],
-            architectureDiagram: "Reverse Engineering..."
+            dependencies: ["@supabase/supabase-js", "react-router-dom", "zustand"],
+            architectureDiagram: `Client (React) <-> Supabase <-> ${capitalizedAppName} Logic`
           },
           logic: {
-            processSchema: "Analyse UX -> Modélisation DB -> Dev Frontend",
-            dataFlow: "TBD",
-            integrations: ["TBD"]
+            processSchema: `Analyse des flux de ${capitalizedAppName} -> Simplification -> Implémentation`,
+            dataFlow: "Utilisateur -> Interface Clone -> API Supabase -> DB",
+            dataModels: "Users, Items, Settings, Logs",
+            businessLogic: `Réplication de la logique métier principale de ${capitalizedAppName} avec des simplifications pour l'agence.`,
+            integrations: ["Slack", "Email", "Export CSV"]
           },
           guide: {
-            steps: [
+            phases: [
               {
-                title: "Analyse des Fonctionnalités",
-                description: "L'IA a identifié les modules principaux à cloner.",
-                code: "// Génération du plan de développement..."
+                title: "Phase 1: Reverse Engineering",
+                description: "Analyse des fonctionnalités clés de l'application cible.",
+                steps: ["Lister les écrans principaux", "Identifier les modèles de données", "Mapper les interactions utilisateur"],
+                code: "// Pas de code pour cette phase d'analyse"
+              },
+              {
+                title: "Phase 2: Echafaudage (Scaffolding)",
+                description: "Mise en place de la structure du projet clone.",
+                steps: [`uprising create ${appName}-clone`, "Setup Supabase project", "Config Auth"],
+                code: `npm create vite@latest ${appName}-clone -- --template react-ts`
+              },
+              {
+                title: "Phase 3: Développement Core",
+                description: "Implémentation des fonctionnalités MVP.",
+                steps: ["Dev Layout & Navigation", "Dev CRUD Entités", "Dev Settings"],
+                code: `// Exemple de structure
+const AppLayout = () => (
+  <div className="flex h-screen">
+    <Sidebar />
+    <main className="flex-1 overflow-auto">
+      <Outlet />
+    </main>
+  </div>
+);`
               }
             ],
-            validationChecklist: ["MVP fonctionnel"]
+            validationChecklist: ["Login fonctionnel", "CRUD principal opérationnel", "Données persistées"]
           },
           deployment: {
-            vercelConfig: "Standard",
-            envVars: [],
-            rollback: "Git"
+            vercelConfig: "Standard React App",
+            envVars: ["VITE_SUPABASE_URL", "VITE_SUPABASE_ANON_KEY"],
+            cicd: "GitHub Actions",
+            dns: `${appName}.agence.internal`,
+            monitoring: "Vercel Analytics",
+            backup: "Supabase PITR",
+            rollback: "Git Revert"
           },
           maintenance: {
-            tasks: [],
-            metrics: [],
-            scalability: "TBD"
+            tasks: ["Monitoring des quotas Supabase", "Mises à jour de sécurité"],
+            metrics: ["Utilisation active", "Performance"],
+            updates: "Mensuelles",
+            support: "Interne",
+            costs: "Minimes (Hosting gratuit)",
+            scalability: "Horizontal scaling via Supabase"
+          },
+          estimation: {
+            time: "40 heures",
+            skillLevel: "Avancé",
+            infraCosts: "0$",
+            roi: "Variable (dépend du coût de l'outil original)"
+          },
+          vibePrompts: {
+            title: `Vibe Coding: ${capitalizedAppName} Clone`,
+            prompts: [
+              `Agis comme un expert produit. Analyse l'application ${capitalizedAppName} et liste ses 5 fonctionnalités les plus critiques pour une agence.`,
+              `Génère un schéma de base de données PostgreSQL pour cloner les fonctionnalités principales de ${capitalizedAppName}.`,
+              `Crée une structure de composants React pour reproduire le layout de ${capitalizedAppName} (Sidebar, Header, Main Content).`,
+              `Écris les politiques RLS Supabase pour sécuriser les données du clone de ${capitalizedAppName}.`
+            ]
           }
         }
       };
@@ -101,7 +268,7 @@ export default function App() {
       setActiveSectionId(newDoc.id);
       setReplicatorUrl('');
       setIsReplicating(false);
-    }, 2000);
+    }, 1500);
   };
 
   return (
@@ -135,6 +302,9 @@ export default function App() {
           {docs.map((section) => {
             const Icon = section.icon;
             const isActive = activeSectionId === section.id;
+            const state = toolStates[section.id] || { status: 'backlog' };
+            const StatusIcon = STATUS_CONFIG[state.status].icon;
+
             return (
               <button
                 key={section.id}
@@ -142,15 +312,17 @@ export default function App() {
                   setActiveSectionId(section.id);
                   setIsMobileMenuOpen(false);
                 }}
-                className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors
+                className={`w-full flex items-center gap-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors group relative
                   ${isActive 
                     ? 'bg-indigo-50 text-indigo-700' 
                     : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900'}
                 `}
               >
                 <Icon className={`w-5 h-5 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} />
-                <span className="truncate">{section.title}</span>
-                {isActive && <ChevronRight className="w-4 h-4 ml-auto text-indigo-400" />}
+                <span className="truncate flex-1 text-left">{section.title}</span>
+                
+                {/* Status Indicator in Sidebar */}
+                <div className={`w-2 h-2 rounded-full ${state.status === 'live' ? 'bg-emerald-400' : state.status === 'building' ? 'bg-indigo-400' : 'bg-slate-200'}`} />
               </button>
             );
           })}
@@ -160,7 +332,7 @@ export default function App() {
         <div className="p-4 border-t border-slate-100 bg-slate-50">
           <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 flex items-center gap-1">
             <Sparkles className="w-3 h-3 text-amber-500" />
-            App Replicator
+            Lier une App & Générer Blueprint
           </div>
           <div className="space-y-2">
             <input 
@@ -196,18 +368,87 @@ export default function App() {
         <div className="max-w-5xl mx-auto p-6 md:p-12 space-y-12">
           
           {/* Header Section */}
-          <header className="space-y-4 border-b border-slate-200 pb-8">
-            <div className="flex items-center gap-2 text-sm font-medium text-indigo-600 mb-2">
-              <span className="bg-indigo-50 px-2 py-1 rounded-md uppercase tracking-wider text-xs">Guide Technique</span>
-              <span className="text-slate-300">•</span>
-              <span>{activeSection.title}</span>
+          <header className="space-y-6 border-b border-slate-200 pb-8">
+            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 text-sm font-medium text-indigo-600">
+                  <span className="bg-indigo-50 px-2 py-1 rounded-md uppercase tracking-wider text-xs">Guide Technique</span>
+                  <span className="text-slate-300">•</span>
+                  <span>{activeSection.title}</span>
+                </div>
+                <h1 className="text-3xl md:text-4xl font-bold text-slate-900 tracking-tight">
+                  {activeSection.title}
+                </h1>
+                <p className="text-lg text-slate-600 max-w-2xl leading-relaxed">
+                  {activeSection.content.overview.objective}
+                </p>
+              </div>
+
+              {/* Team Assignment Controls */}
+              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm min-w-[280px] space-y-4">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">État du Projet</span>
+                  <div className={`px-2 py-0.5 rounded text-xs font-medium flex items-center gap-1 ${STATUS_CONFIG[currentToolState.status].bg} ${STATUS_CONFIG[currentToolState.status].color}`}>
+                    {React.createElement(STATUS_CONFIG[currentToolState.status].icon, { className: "w-3 h-3" })}
+                    {STATUS_CONFIG[currentToolState.status].label}
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-xs text-slate-500 block mb-1.5">Statut</label>
+                    <div className="flex bg-slate-100 p-1 rounded-lg">
+                      {(Object.keys(STATUS_CONFIG) as ToolStatus[]).map((status) => (
+                        <button
+                          key={status}
+                          onClick={() => updateToolState(activeSectionId, { status })}
+                          className={`flex-1 py-1 text-xs font-medium rounded-md transition-all ${
+                            currentToolState.status === status 
+                              ? 'bg-white text-slate-900 shadow-sm' 
+                              : 'text-slate-500 hover:text-slate-700'
+                          }`}
+                        >
+                          {STATUS_CONFIG[status].label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-slate-500 block mb-1.5">Assigné à</label>
+                    <div className="relative">
+                      <select
+                        value={currentToolState.assignee || ''}
+                        onChange={(e) => updateToolState(activeSectionId, { assignee: e.target.value })}
+                        className="w-full appearance-none bg-white border border-slate-200 text-slate-700 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      >
+                        {TEAM_MEMBERS.map(member => (
+                          <option key={member} value={member}>{member}</option>
+                        ))}
+                      </select>
+                      <UserPlus className="w-4 h-4 text-slate-400 absolute right-3 top-2.5 pointer-events-none" />
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-100 flex gap-2">
+                    <button 
+                      onClick={() => copyToClipboard(generateMarkdown(activeSection))}
+                      className="flex-1 py-2 bg-slate-100 text-slate-600 text-xs font-medium rounded-lg hover:bg-slate-200 transition-colors flex items-center justify-center gap-1"
+                    >
+                      <BookOpen className="w-3 h-3" />
+                      Copier Doc
+                    </button>
+                    <button 
+                      onClick={() => copyToClipboard(generatePRD(activeSection))}
+                      className="flex-1 py-2 bg-indigo-50 text-indigo-600 text-xs font-medium rounded-lg hover:bg-indigo-100 transition-colors flex items-center justify-center gap-1"
+                    >
+                      <Wand2 className="w-3 h-3" />
+                      Générer PRD
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
-            <h1 className="text-3xl md:text-4xl font-bold text-slate-900 tracking-tight">
-              {activeSection.title}
-            </h1>
-            <p className="text-lg text-slate-600 max-w-2xl leading-relaxed">
-              {activeSection.content.overview.objective}
-            </p>
           </header>
 
           <AnimatePresence mode="wait">
@@ -250,6 +491,28 @@ export default function App() {
                 </div>
               </section>
 
+              {/* 1.5 Estimation & Complexity */}
+              {activeSection.content.estimation && (
+                <section className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 text-center">
+                    <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">Temps Est.</div>
+                    <div className="font-bold text-slate-900">{activeSection.content.estimation.time}</div>
+                  </div>
+                  <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 text-center">
+                    <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">Niveau</div>
+                    <div className="font-bold text-slate-900">{activeSection.content.estimation.skillLevel}</div>
+                  </div>
+                  <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 text-center">
+                    <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">Coût Infra</div>
+                    <div className="font-bold text-slate-900">{activeSection.content.estimation.infraCosts}</div>
+                  </div>
+                  <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 text-center">
+                    <div className="text-xs text-slate-500 uppercase tracking-wider mb-1">ROI</div>
+                    <div className="font-bold text-emerald-600">{activeSection.content.estimation.roi}</div>
+                  </div>
+                </section>
+              )}
+
               {/* 2. Tech Stack */}
               <section>
                 <h2 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
@@ -260,21 +523,34 @@ export default function App() {
                 </h2>
                 <div className="bg-slate-900 text-slate-200 rounded-xl p-6 font-mono text-sm shadow-lg overflow-hidden">
                   <div className="grid md:grid-cols-2 gap-8">
-                    <div>
-                      <div className="text-slate-500 mb-2 uppercase text-xs tracking-wider">Stack Recommandée</div>
-                      <ul className="space-y-2">
-                        {activeSection.content.techStack.recommended.map((tech, i) => (
-                          <li key={i} className="flex items-center gap-2">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-                            {tech}
-                          </li>
-                        ))}
-                      </ul>
+                    <div className="space-y-4">
+                      <div>
+                        <div className="text-slate-500 mb-1 uppercase text-xs tracking-wider">Frontend</div>
+                        <div className="text-white">{activeSection.content.techStack.frontend}</div>
+                      </div>
+                      <div>
+                        <div className="text-slate-500 mb-1 uppercase text-xs tracking-wider">Backend</div>
+                        <div className="text-white">{activeSection.content.techStack.backend}</div>
+                      </div>
+                      <div>
+                        <div className="text-slate-500 mb-1 uppercase text-xs tracking-wider">Database</div>
+                        <div className="text-white">{activeSection.content.techStack.database}</div>
+                      </div>
                     </div>
-                    <div>
-                      <div className="text-slate-500 mb-2 uppercase text-xs tracking-wider">Flux de Données</div>
-                      <div className="p-3 bg-slate-800 rounded border border-slate-700 text-xs leading-relaxed">
-                        {activeSection.content.techStack.architectureDiagram}
+                    <div className="space-y-4">
+                      <div>
+                        <div className="text-slate-500 mb-1 uppercase text-xs tracking-wider">Auth</div>
+                        <div className="text-white">{activeSection.content.techStack.auth}</div>
+                      </div>
+                      <div>
+                        <div className="text-slate-500 mb-1 uppercase text-xs tracking-wider">Hosting</div>
+                        <div className="text-white">{activeSection.content.techStack.hosting}</div>
+                      </div>
+                      <div>
+                        <div className="text-slate-500 mb-1 uppercase text-xs tracking-wider">Flux de Données</div>
+                        <div className="p-2 bg-slate-800 rounded border border-slate-700 text-xs leading-relaxed text-slate-300">
+                          {activeSection.content.techStack.architectureDiagram}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -292,6 +568,15 @@ export default function App() {
                       {activeSection.content.logic.processSchema}
                     </p>
                   </div>
+                  {activeSection.content.logic.dataModels && (
+                    <div className="relative">
+                      <div className="absolute -left-[41px] top-0 w-5 h-5 rounded-full bg-white border-2 border-slate-300"></div>
+                      <h3 className="font-semibold text-slate-900 mb-2">Modèles de Données</h3>
+                      <p className="text-slate-600 bg-slate-50 p-4 rounded-lg border border-slate-100 font-mono text-xs">
+                        {activeSection.content.logic.dataModels}
+                      </p>
+                    </div>
+                  )}
                   <div className="relative">
                     <div className="absolute -left-[41px] top-0 w-5 h-5 rounded-full bg-white border-2 border-slate-300"></div>
                     <h3 className="font-semibold text-slate-900 mb-2">Intégrations</h3>
@@ -310,30 +595,38 @@ export default function App() {
               <section>
                 <h2 className="text-xl font-bold text-slate-900 mb-6">Guide de Création</h2>
                 <div className="space-y-8">
-                  {activeSection.content.guide.steps.map((step, index) => (
+                  {activeSection.content.guide.phases.map((phase, index) => (
                     <div key={index} className="group">
                       <div className="flex items-start gap-4">
                         <div className="flex-shrink-0 w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-sm">
                           {index + 1}
                         </div>
                         <div className="flex-1 space-y-3">
-                          <h3 className="font-bold text-slate-900 text-lg">{step.title}</h3>
-                          <p className="text-slate-600 leading-relaxed">{step.description}</p>
-                          {step.code && (
+                          <h3 className="font-bold text-slate-900 text-lg">{phase.title}</h3>
+                          <p className="text-slate-600 leading-relaxed">{phase.description}</p>
+                          
+                          {/* Steps List */}
+                          {phase.steps && (
+                            <ul className="list-disc list-inside text-sm text-slate-600 space-y-1 ml-1">
+                              {phase.steps.map((s, i) => <li key={i}>{s}</li>)}
+                            </ul>
+                          )}
+
+                          {phase.code && (
                             <div className="mt-4 relative group/code">
                               <div className="absolute right-2 top-2 opacity-0 group-hover/code:opacity-100 transition-opacity">
-                                <CopyButton code={step.code} />
+                                <CopyButton code={phase.code} />
                               </div>
                               <div className="bg-slate-900 rounded-lg border border-slate-800 p-4 overflow-x-auto">
                                 <pre className="text-sm font-mono text-emerald-400">
-                                  <code>{step.code}</code>
+                                  <code>{phase.code}</code>
                                 </pre>
                               </div>
                             </div>
                           )}
                         </div>
                       </div>
-                      {index < activeSection.content.guide.steps.length - 1 && (
+                      {index < activeSection.content.guide.phases.length - 1 && (
                         <div className="ml-4 pl-4 border-l border-slate-200 h-8 my-2"></div>
                       )}
                     </div>
